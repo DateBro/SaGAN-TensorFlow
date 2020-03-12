@@ -41,45 +41,20 @@ parser.add_argument('--threads', type=int, default=-1,
 # model
 att_default = ['Bald', 'Bangs', 'Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Bushy_Eyebrows', 'Eyeglasses',
                'Male', 'Mouth_Slightly_Open', 'Mustache', 'No_Beard', 'Pale_Skin', 'Young']
-parser.add_argument('--atts', default=att_default, choices=data.Celeba.att_dict.keys(), nargs='+',
-                    help='Attributes to modify by the model')
+target_att_default = ['Bangs']
+# parser.add_argument('--atts', default=att_default, choices=data.Celeba.att_dict.keys(), nargs='+',
+#                     help='Attributes to modify by the model')
+parser.add_argument('--target_att', default=target_att_default, choices=data.Celeba.att_dict.keys(),
+                    help='Target attribute to modify by the model')
 parser.add_argument('--img_size', type=int, default=128, help='input image size')
-parser.add_argument('--shortcut_layers', type=int, default=4,
-                    help='# of skip connections between the encoder and the decoder')
-parser.add_argument('--inject_layers', type=int, default=4,
-                    help='# of attribute vectors applied in the decoder')
-parser.add_argument('--enc_dim', type=int, default=64)
-parser.add_argument('--dec_dim', type=int, default=64)
-parser.add_argument('--dis_dim', type=int, default=64)
-parser.add_argument('--dis_fc_dim', type=int, default=1024,
-                    help='# of discriminator fc channels')
-parser.add_argument('--enc_layers', type=int, default=5)
-parser.add_argument('--dec_layers', type=int, default=5)
-parser.add_argument('--dis_layers', type=int, default=5)
-# STGAN & STU
-parser.add_argument('--label', type=str, default='diff', choices=['diff', 'target'])
-parser.add_argument('--use_stu', type=boolean, default=True)
-parser.add_argument('--stu_dim', type=int, default=64)
-parser.add_argument('--stu_layers', type=int, default=4)
-parser.add_argument('--stu_inject_layers', type=int, default=4)
-parser.add_argument('--stu_kernel_size', type=int, default=3)
-parser.add_argument('--stu_norm', type=str, default='none', choices=['none', 'bn', 'in'])
-parser.add_argument('--stu_state', type=str, default='stu', choices=['stu', 'gru', 'direct'],
-                    help='gru: gru arch.; stu: stu arch.; direct: directly pass the inner state to the outer layer')
-# multi_inputs 是什么？
-parser.add_argument('--multi_inputs', type=int, default=1,
-                    help='# of hierachical inputs (in the first several encoder layers')
-parser.add_argument('--rec_loss_weight', type=float, default=100.0)
-parser.add_argument('--one_more_conv', type=int, default=0, choices=[0, 1, 3],
-                    help='0: no further conv after the decoder; 1: conv(k=1); 3: conv(k=3)')
 # training
 parser.add_argument('--mode', default='wgan', choices=['wgan', 'lsgan', 'dcgan'])
 parser.add_argument('--epoch', type=int, default=200, help='# of epochs')
 parser.add_argument('--init_epoch', type=int, default=100, help='# of epochs with init lr.')
-parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--lr', type=float, default=0.0002, help='learning rate')
-parser.add_argument('--n_d', type=int, default=5, help='# of d updates per g update')
-# thres_int？
+parser.add_argument('--n_d', type=int, default=3, help='# of d updates per g update')
+
 parser.add_argument('--thres_int', type=float, default=0.5)
 parser.add_argument('--test_int', type=float, default=1.0)
 parser.add_argument('--n_sample', type=int, default=64, help='# of sample images')
@@ -91,7 +66,6 @@ parser.add_argument('--sample_freq', type=int, default=0,
 parser.add_argument('--use_cropped_img', action='store_true')
 parser.add_argument('--experiment_name', default=datetime.datetime.now().strftime("%Y.%m.%d-%H%M%S"))
 parser.add_argument('--num_ckpt', type=int, default=1)
-# clear 的作用？
 parser.add_argument('--clear', default=False, action='store_true')
 
 args = parser.parse_args()
@@ -101,30 +75,10 @@ if args.gpu != 'all':
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 threads = args.threads
 # model
-atts = args.atts
+atts = target_att_default
 n_att = len(atts)
+# target_att = args.target_att
 img_size = args.img_size
-shortcut_layers = args.shortcut_layers
-inject_layers = args.inject_layers
-enc_dim = args.enc_dim
-dec_dim = args.dec_dim
-dis_dim = args.dis_dim
-dis_fc_dim = args.dis_fc_dim
-enc_layers = args.enc_layers
-dec_layers = args.dec_layers
-dis_layers = args.dis_layers
-# STU
-label = args.label
-use_stu = args.use_stu
-stu_dim = args.stu_dim
-stu_layers = args.stu_layers
-stu_inject_layers = args.stu_inject_layers
-stu_kernel_size = args.stu_kernel_size
-stu_norm = args.stu_norm
-stu_state = args.stu_state
-multi_inputs = args.multi_inputs
-rec_loss_weight = float(args.rec_loss_weight)
-one_more_conv = args.one_more_conv
 # training
 mode = args.mode
 epoch = args.epoch
@@ -153,7 +107,6 @@ with open('./output/%s/setting.txt' % experiment_name, 'w') as f:
 
 # data
 if threads >= 0:
-    # 没看懂device_count的用法
     cpu_config = tf.ConfigProto(intra_op_parallelism_threads = threads//2,
                                 inter_op_parallelism_threads = threads//2,
                                 device_count = {'CPU': threads})
@@ -165,18 +118,12 @@ tr_data = data.Celeba(dataroot, atts, img_size, batch_size, part='train', sess=s
 val_data = data.Celeba(dataroot, atts, img_size, n_sample, part='val', shuffle=False, sess=sess, crop=crop_)
 
 # models
-Genc = partial(models.Genc, dim=enc_dim, n_layers=enc_layers, multi_inputs=multi_inputs)
-Gdec = partial(models.Gdec, dim=dec_dim, n_layers=dec_layers, shortcut_layers=shortcut_layers,
-               inject_layers=inject_layers, one_more_conv=one_more_conv)
-Gstu = partial(models.Gstu, dim=stu_dim, n_layers=stu_layers, inject_layers=stu_inject_layers,
-               kernel_size=stu_kernel_size, norm=stu_norm, pass_state=stu_state)
-D = partial(models.D, n_att=n_att, dim=dis_dim, fc_dim=dis_fc_dim, n_layers=dis_layers)
+G = partial(models.G, dim=32)
+D = partial(models.D, dim=32, n_layers=6)
 
 # inputs
 lr = tf.placeholder(dtype=tf.float32, shape=[])
 
-# batch_op?
-# xa应该是一个batch的图片，a应该是一个batch的attribute vector
 xa = tr_data.batch_op[0]
 a = tr_data.batch_op[1]
 b = tf.random_shuffle(a)
@@ -184,31 +131,24 @@ b = tf.random_shuffle(a)
 _a = (tf.to_float(a) * 2 - 1) * thres_int
 _b = (tf.to_float(b) * 2 - 1) * thres_int
 
-xa_sample = tf.placeholder(tf.float32, shape=[None, img_size, img_size, 3])
-_b_sample = tf.placeholder(tf.float32, shape=[None, n_att])
-raw_b_sample = tf.placeholder(tf.float32, shape=[None, n_att])
+xa_sample = tf.placeholder(tf.float32, shape=[n_sample, img_size, img_size, 3])
+_b_sample = tf.placeholder(tf.float32, shape=[n_sample, ])
+raw_b_sample = tf.placeholder(tf.float32, shape=[n_sample, ])
 
 # generate
-# z应该是图片通过encoder后的表示，是每一层的feature map
-z = Genc(xa)
-# zb 应该是表示encoder后用不用stu的结果，不用的话就是z，用的话就经过stu处理
-zb = Gstu(z, _b-_a if label=='diff' else _b) if use_stu else z
-# xb_ 应该是decoder的结果
-xb_ = Gdec(zb, _b-_a if label=='diff' else _b)
-# tf.control_dependencies，控制里面的操作不能在xb_之前执行
+# 这里的_b是根据STGAN中的设置来的，可能有问题
+xb_, mask_b = G(xa, _b)
+
 with tf.control_dependencies([xb_]):
-    # 这里的a应该是指reconstruction部分，b是target，a是source
-    za = Gstu(z, _a-_a if label=='diff' else _a) if use_stu else z
-    xa_ = Gdec(za, _a-_a if label=='diff' else _a)
+    xa_, _ = G(xa, _a)
+    xb_a, _ = G(xb_, _a)
 
 # discriminate
-# gan是判断real/fake，att是预测attribute，a为real，b为fake
 xa_logit_gan, xa_logit_att = D(xa)
 xb__logit_gan, xb__logit_att = D(xb_)
 
 # discriminator losses
 if mode == 'wgan':  # wgan-gp
-    # 论文中adversarial loss那里还有一项，是后面的gradient penalty吗？
     wd = tf.reduce_mean(xa_logit_gan) - tf.reduce_mean(xb__logit_gan)
     d_loss_gan = -wd
     gp = models.gradient_penalty(D, xa, xb_)
@@ -237,13 +177,12 @@ elif mode == 'dcgan':
     xb__loss_gan = tf.losses.sigmoid_cross_entropy(tf.ones_like(xb__logit_gan), xb__logit_gan)
 
 xb__loss_att = tf.losses.sigmoid_cross_entropy(b, xb__logit_att)
-# reconstruction loss是L1，所以可以直接进行图片的比较？
-xa__loss_rec = tf.losses.absolute_difference(xa, xa_)
+# reconstruction loss
+xa__loss_rec = 20 * tf.losses.absolute_difference(xa, xb_a) + 100 * tf.losses.absolute_difference(xa, xa_)
 
-g_loss = xb__loss_gan + xb__loss_att * 10.0 + xa__loss_rec * rec_loss_weight
+g_loss = xb__loss_gan + xb__loss_att + xa__loss_rec
 
 # optim
-# 用var_list指定哪些变量是可训练的变量，应该是在训练时固定D和G的一个更新另一个的操作
 d_var = tl.trainable_variables('D')
 d_step = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(d_loss, var_list=d_var)
 
@@ -251,7 +190,6 @@ g_var = tl.trainable_variables('G')
 g_step = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(g_loss, var_list=g_var)
 
 # summary
-# show_weights 应该和tensorboard相关吧？
 show_weights = False
 
 d_summary = tl.summary({
@@ -296,12 +234,8 @@ else:
     d_summary = tf.summary.merge([d_summary, lr_summary])
 
 # sample
-test_label = _b_sample - raw_b_sample if label=='diff' else _b_sample
-if use_stu:
-    x_sample = Gdec(Gstu(Genc(xa_sample, is_training=False),
-                         test_label, is_training=False), test_label, is_training=False)
-else:
-    x_sample = Gdec(Genc(xa_sample, is_training=False), test_label, is_training=False)
+test_label = _b_sample
+x_sample, mask_sample = models.G(xa_sample, test_label, is_training=False)
 
 # ==============================================================================
 # =                                    train                                   =
@@ -331,13 +265,19 @@ except:
 try:
     # data for sampling
     xa_sample_ipt, a_sample_ipt = val_data.get_next()
+    # print('xa_sample_ipt shape: ', xa_sample_ipt.shape)
+    # print('a_sample_ipt shape: ', a_sample_ipt.shape)
+    # print('a_sample_ipt content: ', a_sample_ipt)
     b_sample_ipt_list = [a_sample_ipt]  # the first is for reconstruction
     # list第一个vector是为了reconstruction，后面的每个vector都有一个attribute被inverse
-    for i in range(len(atts)):
-        tmp = np.array(a_sample_ipt, copy=True)
-        tmp[:, i] = 1 - tmp[:, i]   # inverse attribute
-        tmp = data.Celeba.check_attribute_conflict(tmp, atts[i], atts)
-        b_sample_ipt_list.append(tmp)
+    tmp = np.array(a_sample_ipt, copy=True)
+    # tmp[:, i] = 1 - tmp[:, i]   # inverse attribute
+    # 这里和STGAN中的不同，STGAN有多个属性，而SaGAN一次只能改一个属性，所以如上会报IndexError
+    tmp[:] = 1 - tmp[:]   # inverse attribute
+    # 只有一个属性，就不存在什么conflict
+    b_sample_ipt_list.append(tmp)
+    # print('b_sample_ipt_list content: ', b_sample_ipt_list)
+    # print('b_sample_ipt_list[-1] content: ', b_sample_ipt_list[-1])
 
     it_per_epoch = len(tr_data) // (batch_size * (n_d + 1))
     max_it = epoch * it_per_epoch
@@ -371,32 +311,31 @@ try:
                 print('Model is saved at %s!' % save_path)
 
             # sample
-            # 应该是为了看一下每个epoch的效果
             if (it + 1) % (sample_freq if sample_freq else it_per_epoch) == 0:
-                # 这里的x_sample_opt_list是什么？output?为什么有-1.0填充？
                 x_sample_opt_list = [xa_sample_ipt, np.full((n_sample, img_size, img_size // 10, 3), -1.0)]
-                # b应该是attribute vector，这里为啥要*2-1再*thres_int呢？没看懂这里
+                # print('x_sample_opt_list shape: ', x_sample_opt_list.shape)
                 raw_b_sample_ipt = (b_sample_ipt_list[0].copy() * 2 - 1) * thres_int
                 for i, b_sample_ipt in enumerate(b_sample_ipt_list):
                     _b_sample_ipt = (b_sample_ipt * 2 - 1) * thres_int
+                    # print('current i: ', i)
+                    # print('_b_sample_ipt content: ', _b_sample_ipt)
                     if i > 0:   # i == 0 is for reconstruction
-                        # 这里的...是什么操作？没见过
                         _b_sample_ipt[..., i - 1] = _b_sample_ipt[..., i - 1] * test_int / thres_int
-                    # 所以是每次都对val_data里的一份sample进行transfer的测试吗？
-                    x_sample_opt_list.append(sess.run(x_sample, feed_dict={xa_sample: xa_sample_ipt,
-                                                                           _b_sample: _b_sample_ipt,
-                                                                           raw_b_sample: raw_b_sample_ipt}))
+
+                    x_sample_result = sess.run(x_sample, feed_dict={xa_sample: xa_sample_ipt,
+                                                                    _b_sample: _b_sample_ipt,
+                                                                    raw_b_sample: raw_b_sample_ipt})
+                    print('x_sample_result shape: ', x_sample_result.shape)
+                    x_sample_opt_list.append(x_sample_result)
+                    # print('x_sample_opt_list shape: ', x_sample_opt_list.shape)
                     last_images = x_sample_opt_list[-1]
                     if i > 0:   # add a mark (+/-) in the upper-left corner to identify add/remove an attribute
                         for nnn in range(last_images.shape[0]):
-                            # x_sample_opt_list中的元素是x_sample，也就是一个图片list
-                            # 没看懂画加号减号的过程！
                             last_images[nnn, 2:5, 0:7, :] = 1.
-                            if _b_sample_ipt[nnn, i-1] > 0:
+                            if _b_sample_ipt[nnn] > 0:
                                 last_images[nnn, 0:7, 2:5, :] = 1.
                                 last_images[nnn, 1:6, 3:4, :] = -1.
                             last_images[nnn, 3:4, 1:6, :] = -1.
-                # 这里concatenate用axis=2，因为list里每个元素是一个sample，也就是axis=2才代表每张图片的维度
                 sample = np.concatenate(x_sample_opt_list, 2)
 
                 save_dir = './output/%s/sample_training' % experiment_name

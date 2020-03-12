@@ -16,6 +16,7 @@ def tensors_filter(tensors, filters, combine_type='or'):
     f_tens = []
     for ten in tensors:
         if combine_type == 'or':
+            # print('tensor name: ', ten.name)
             for filt in filters:
                 if filt in ten.name:
                     f_tens.append(ten)
