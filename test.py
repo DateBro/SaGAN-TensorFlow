@@ -38,7 +38,6 @@ with open('./output/%s/setting.txt' % args_.experiment_name) as f:
 
 # model
 atts = args['target_att']
-n_att = len(atts)
 img_size = args['img_size']
 label = args['label']
 
@@ -50,11 +49,6 @@ gpu = args_.gpu
 if gpu != 'all':
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu
 
-#### testing
-# single attribute
-test_int = args_.test_int
-
-thres_int = args['thres_int']
 # others
 use_cropped_img = args['use_cropped_img']
 experiment_name = args_.experiment_name
@@ -68,8 +62,8 @@ experiment_name = args_.experiment_name
 sess = tl.session()
 te_data = data.Celeba(dataroot, atts, img_size, 1, part='test', sess=sess, crop=not use_cropped_img, im_no=img)
 # models
-G = partial(models.G, dim=32)
-D = partial(models.D, dim=32, n_layers=6)
+G = partial(models.G)
+D = partial(models.D)
 
 # inputs
 xa_sample = tf.placeholder(tf.float32, shape=[1, img_size, img_size, 3])
@@ -78,7 +72,7 @@ raw_b_sample = tf.placeholder(tf.float32, shape=[1, ])
 
 # sample
 test_label = _b_sample
-x_sample = G(xa_sample,  test_label, is_training=False)
+x_sample, mask_sample = G(xa_sample,  test_label, is_training=False)
 
 # ==============================================================================
 # =                                    test                                    =
@@ -93,34 +87,31 @@ try:
     for idx, batch in enumerate(te_data):
         xa_sample_ipt = batch[0]
         a_sample_ipt = batch[1]
-        # 这个操作之后b是比a多一维的
         b_sample_ipt_list = [a_sample_ipt.copy() for _ in range(1)]
         # test_single_attributes
-        for i in range(len(atts)):
-            tmp = np.array(a_sample_ipt, copy=True)
-            tmp[:, i] = 1 - tmp[:, i]   # inverse attribute
-            tmp = data.Celeba.check_attribute_conflict(tmp, atts[i], atts)
-            b_sample_ipt_list.append(tmp)
+        tmp = np.array(a_sample_ipt, copy=True)
+        tmp[:] = 1 - tmp[:]   # inverse attribute
+        b_sample_ipt_list.append(tmp)
 
         x_sample_opt_list = [xa_sample_ipt, np.full((1, img_size, img_size // 10, 3), -1.0)]
-        raw_a_sample_ipt = a_sample_ipt.copy()
-        raw_a_sample_ipt = (raw_a_sample_ipt * 2 - 1) * thres_int
+        mask_sample_opt_list = [np.full((1, img_size, img_size // 10, 1), -1.0)]
         for i, b_sample_ipt in enumerate(b_sample_ipt_list):
-            _b_sample_ipt = (b_sample_ipt * 2 - 1) * thres_int
-            if not test_slide:
-                if i > 0:   # i == 0 is for reconstruction
-                    _b_sample_ipt[..., i - 1] = _b_sample_ipt[..., i - 1] * test_int
             x_sample_opt_list.append(sess.run(x_sample, feed_dict={xa_sample: xa_sample_ipt,
-                                                                   _b_sample: _b_sample_ipt,
-                                                                   raw_b_sample: raw_a_sample_ipt}))
+                                                                   _b_sample: b_sample_ipt,}))
+            mask_sample_opt_list.append(sess.run(mask_sample, feed_dict={xa_sample: xa_sample_ipt,
+                                                                         _b_sample: b_sample_ipt}))
         sample = np.concatenate(x_sample_opt_list, 2)
+        masks = np.concatenate(mask_sample_opt_list, 2)
 
         save_folder = 'sample_testing'
         save_dir = './output/%s/%s' % (experiment_name, save_folder)
         pylib.mkdir(save_dir)
         im.imwrite(sample.squeeze(0), '%s/%06d%s.png' % (save_dir,
-                                                         idx + 182638 if img is None else img[idx], 
+                                                         idx + 182638 if img is None else img[idx],
                                                          '_%s' % ''))
+        im.imwrite(masks.squeeze(0), 'Mask%s/%06d%s.png' % (save_dir,
+                                                            idx + 182638 if img is None else img[idx],
+                                                            '_%s' % ''))
 
         print('%06d.png done!' % (idx + 182638 if img is None else img[idx]))
 except:

@@ -2,10 +2,13 @@
   <dictionary name="sduda">
     <words>
       <w>atts</w>
+      <w>bulid</w>
       <w>celeba</w>
       <w>ckpt</w>
       <w>conv</w>
+      <w>cuda</w>
       <w>dataroot</w>
+      <w>datasets</w>
       <w>dcgan</w>
       <w>dconv</w>
       <w>gamn</w>

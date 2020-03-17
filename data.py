@@ -189,7 +189,7 @@ class Celeba(Dataset):
             img = tf.image.resize_images(img, [img_resize, img_resize], tf.image.ResizeMethod.BICUBIC)
             # tf.clip_by_value(A, min, max)：输入一个张量A，把A中的每一个元素的值都压缩在min和max之间。
             # 小于min的让它等于min，大于max的元素的值等于max。
-            # 这里就是将图片的像素值压缩到[-1, 1]
+            # 这里就是将图片的像素值压缩到[-1, 1]，归一化
             img = tf.clip_by_value(img, 0, 255) / 127.5 - 1
             # list_attr_celeba中的值不是-1就是1，这样将其转换成0或1
             label = (label + 1) // 2
