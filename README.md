@@ -1,32 +1,20 @@
 # Spatial Attention Generative Adversarial Network
 
-This repository contains the TensorFlow implementation of the ECCV 2018 paper "Generative Adversarial Network with Spatial Attention for Face Attribute Editing" ([pdf](http://openaccess.thecvf.com/content_ECCV_2018/papers/Gang_Zhang_Generative_Adversarial_Network_ECCV_2018_paper.pdf)).
-
-My results with images and attention masks on CelebA 128 _(original, eyeglasses, mouth_slightly_open, no_beard, smiling)_
-
-![Results](https://github.com/elvisyjlin/SpatialAttentionGAN/blob/master/pics/4_attr_results.jpg)
+**Tensorflow** implementation of [**Generative Adversarial Network with Spatial Attention for Face Attribute Editing**](http://openaccess.thecvf.com/content_ECCV_2018/papers/Gang_Zhang_Generative_Adversarial_Network_ECCV_2018_paper.pdf)
 
 
-## Requirements
+## Preparation
 
-* Python 3.6
-* TensorFlow 1.15.0
+- **Prerequisites**
+    - Tensorflow (r1.4 - r1.12 should work fine)
+    - Python 3.x with matplotlib, numpy and scipy
 
-The training procedure described in paper takes 5.5GB memory on a single GPU.
-
-* Datasets
-  * [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
-    * Put _Align&Cropped Images_ in `./data/celeba/*.jpg`
-    * Put _Attributes Annotations_ in `./data/list_attr_celeba.txt`
-
-* Pretrained models (download from http://bit.ly/sagan-results and decompress the zips to `./results`)
-  ```
-    results
-    ├── celeba_128_eyeglasses
-    ├── celeba_128_mouth_slightly_open
-    ├── celeba_128_no_beard
-    └── celeba_128_smiling
-  ```
+- **Dataset**
+    - [CelebA](http://openaccess.thecvf.com/content_iccv_2015/papers/Liu_Deep_Learning_Face_ICCV_2015_paper.pdf) dataset (Find more details from the [project page](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html))
+        - [Images](https://drive.google.com/open?id=0B7EVK8r0v71pZjFTYXZWM3FlRnM) should be placed in ***DATAROOT/img_align_celeba/\*.jpg***
+        - [Attribute labels](https://drive.google.com/open?id=0B7EVK8r0v71pblRyaVFSWGxPY0U) should be placed in ***DATAROOT/list_attr_celeba.txt***
+        - If google drive is unreachable, you can get the data from [Baidu Cloud](http://pan.baidu.com/s/1eSNpdRG)
+    - We follow the settings of AttGAN, kindly refer to [AttGAN](https://github.com/LynnHo/AttGAN-Tensorflow) for more dataset preparation details
 
 ## Usage
 
@@ -39,5 +27,14 @@ Train a model with a target attribute
 Generate images from trained models
 
 ```bash
-python3 test.py --experiment-name celeba_128_eyeglasses --gpu
+python test.py --experiment-name 128_Bangs --gpu
 ```
+
+### NOTE:
+
+- You should give the path of the data by adding `--dataroot DATAROOT`;
+- You can specify which GPU to use by adding `--gpu GPU`, e.g., `--gpu 0`;
+- You can specify which image(s) to test by adding `--img num` (e.g., `--img 182638`, `--img 200000 200001 200002`), where the number should be no larger than 202599 and is suggested to be no smaller than 182638 as our test set starts at 182638.png.
+
+## Acknowledgement
+The code is built upon [STGAN](https://github.com/csmliu/STGAN) and [AttGAN](https://github.com/LynnHo/AttGAN-Tensorflow), thanks for their excellent work!
