@@ -39,11 +39,11 @@ parser.add_argument('--threads', type=int, default=-1,
                     help='Control parallel computation threads,\
                           please leave it as is if no heavy cpu burden is observed.')
 # model
-att_default = ['Bangs']
-# att_default = ['Bald', 'Bangs', 'Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Bushy_Eyebrows', 'Eyeglasses',
-#                'Male', 'Mouth_Slightly_Open', 'Mustache', 'No_Beard', 'Pale_Skin', 'Young']
-parser.add_argument('--atts', default=att_default, choices=data.Celeba.att_dict.keys(), nargs='+',
-                    help='Attributes to modify by the model')
+target_att_default = ['Bangs']
+att_default = ['Bald', 'Bangs', 'Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Bushy_Eyebrows', 'Eyeglasses',
+               'Male', 'Mouth_Slightly_Open', 'Mustache', 'No_Beard', 'Pale_Skin', 'Young']
+parser.add_argument('--atts', default=target_att_default, choices=data.Celeba.att_dict.keys(),
+                    help='Target attributes to modify by the model')
 parser.add_argument('--img_size', type=int, default=128, help='input image size')
 # training
 parser.add_argument('--epoch', type=int, default=200, help='# of epochs')
