@@ -37,9 +37,8 @@ with open('./output/%s/setting.txt' % args_.experiment_name) as f:
     args = json.load(f)
 
 # model
-atts = args['target_att']
+atts = args['atts']
 img_size = args['img_size']
-label = args['label']
 
 dataroot = args_.dataroot
 img = args_.img
@@ -109,7 +108,7 @@ try:
         im.imwrite(sample.squeeze(0), '%s/%06d%s.png' % (save_dir,
                                                          idx + 182638 if img is None else img[idx],
                                                          '_%s' % ''))
-        im.imwrite(masks.squeeze(0), 'Mask%s/%06d%s.png' % (save_dir,
+        im.imwrite(masks.squeeze(0), '%s/Mask%06d%s.png' % (save_dir,
                                                             idx + 182638 if img is None else img[idx],
                                                             '_%s' % ''))
 

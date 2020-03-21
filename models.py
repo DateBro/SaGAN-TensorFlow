@@ -95,7 +95,8 @@ def Gsan(x, is_training=True):
         for i in range(residual_blocks):
             bottle_neck = conv_bn_relu(z, residual_channels, 3, 1)
             bottle_neck = conv_bn(bottle_neck, residual_channels, 3, 1)
-            z = relu(z + bottle_neck)
+            z = z + bottle_neck
+            # z = relu(z + bottle_neck)
 
         # decoder
         for i in range(dec_layers):

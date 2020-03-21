@@ -128,7 +128,7 @@ xb_, mask_b_ = G(xa, _b)
 
 with tf.control_dependencies([xb_]):
     xa_, mask_xa_ = G(xa, _a)
-    xb_a, mask_xb__a = G(xb_, _a)
+    xb__a, mask_xb__a = G(xb_, _a)
 
 # discriminate
 xa_logit_gan, xa_logit_att = D(xa)
@@ -148,21 +148,16 @@ d_loss = d_loss_gan + gp * 10.0 + xa_loss_att
 xb__loss_gan = -tf.reduce_mean(xb__logit_gan)
 
 xb__loss_att = tf.losses.sigmoid_cross_entropy(b, xb__logit_att)
-# reconstruction loss
-xa__loss_rec = 20 * tf.losses.absolute_difference(xa, xb_a) + 100 * tf.losses.absolute_difference(xa, xa_)
+xa__loss_rec = 20 * tf.losses.absolute_difference(xa, xb__a) + 100 * tf.losses.absolute_difference(xa, xa_)
 
 g_loss = xb__loss_gan + xb__loss_att + xa__loss_rec
 
 # optim
 d_var = tl.trainable_variables('D')
 d_step = tf.train.AdamOptimizer(lr, beta1=0.5, beta2=0.999).minimize(d_loss, var_list=d_var)
-for single_var in d_var:
-    print('single d_var is: ', single_var)
 
 g_var = tl.trainable_variables('G')
 g_step = tf.train.AdamOptimizer(lr, beta1=0.5, beta2=0.999).minimize(g_loss, var_list=g_var)
-for single_var in g_var:
-    print('single d_var is: ', single_var)
 
 # summary
 show_weights = False
@@ -181,7 +176,6 @@ g_summary = tl.summary({
     xb__loss_att: 'xb__loss_att',
     xa__loss_rec: 'xa__loss_rec',
 }, scope='G')
-# 先跳过这里，感觉是tensorboard相关
 if show_weights:
     d_histogram = tf.summary.merge([tf.summary.histogram(
         name=i.name,
@@ -192,12 +186,12 @@ if show_weights:
         name=i.name,
         values=i
     ) for i in tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, 'Gamn')])
-        
+
     gsan_histogram = tf.summary.merge([tf.summary.histogram(
         name=i.name,
         values=i
     ) for i in tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, 'Gsan')])
-    
+
     d_summary = tf.summary.merge([d_summary, lr_summary, d_histogram])
     g_summary = tf.summary.merge([g_summary, gamn_histogram, gsan_histogram])
 else:
@@ -295,7 +289,7 @@ try:
                 save_dir = './output/%s/sample_training' % experiment_name
                 pylib.mkdir(save_dir)
                 im.imwrite(im.immerge(sample, n_sample, 1), '%s/Epoch_(%d)_(%dof%d).jpg' % \
-                                                            (save_dir, epoch, it_in_epoch, it_per_epoch))
+                           (save_dir, epoch, it_in_epoch, it_per_epoch))
                 im.imwrite(im.immerge(masks, n_sample, 1), '%s/Mask_Epoch_(%d)_(%dof%d).jpg' % \
                            (save_dir, epoch, it_in_epoch, it_per_epoch))
 except:
